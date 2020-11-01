@@ -7,17 +7,19 @@ phi() {
 
 usage() {
     >&2 echo "cpm [i|r|l|C|u|U|s|S|I|c|h] [pkg]..."
-    phi i "install" "install one or more packages"
-    phi r "remove " "remove one or more packages"
-    phi l "list   " "list installed packages"
-    phi C "count  " "count installed packages"
-    phi u "update " "update package lists"
-    phi U "upgrade" "upgrade all packages"
-    phi s "search " "search for a package"
-    phi S "show   " "show information about a package"
-    phi I "info   " "same as show"
-    phi c "clean  " "clean up leftover files/caches/orphans"
-    phi h "help   " "show this message"
+    phi i "install " "install one or more packages"
+    phi r "remove  " "remove one or more packages"
+    phi l "list    " "list installed packages"
+    phi C "count   " "count installed packages"
+    phi u "update  " "update package lists"
+    phi U "upgrade " "upgrade all packages"
+    phi s "search  " "search for a package"
+    phi S "show    " "show information about a package"
+    phi I "info    " "same as show"
+    phi c "clean   " "clean up leftover files/caches/orphans"
+    phi h "help    " "show this message"
+    phi d "download" "download packages"
+    phi f "fake    " "fake install packages"
 }
 
 pem() {
@@ -78,6 +80,12 @@ case "$1" in
         usage
         exit 0
         ;;
+   d|download)
+	OP='download'
+	;;
+   f|fake)
+	OP='fake_install'
+	;;
     "")
         usage
         exit 1
@@ -109,12 +117,16 @@ has() {
 # figure out which sudo command to use
 # this is somewhat based on how xtools does it (for xi, specifically)
 SUDO=
-if command -v sudo >/dev/null; then
-    SUDO=sudo
-elif command -v doas >/dev/null && [ -f /etc/doas.conf ]; then
-    SUDO=doas
-elif [ "$(whoami)" != root ]; then
-    SUDO='su root -c '\''"$@"'\'' -- -'
+if [ $USER != "root" ]; then 
+	if command -v sudo >/dev/null; then
+    		SUDO=sudo
+	elif command -v doas >/dev/null && [ -f /etc/doas.conf ]; then
+    		SUDO=doas
+	elif [ "$(whoami)" != root ]; then
+    		SUDO='su root -c '\''"$@"'\'' -- -'
+	fi
+else
+	SUDO=""
 fi
 
 _apk() {
@@ -229,6 +241,23 @@ _macports() {
     esac
 }
 
+fake_install() {
+	rm /var/cache/xbps/* 2>/dev/null
+	xbps-install $1 -D
+	if ls /var/cache/xbps/$1*.xbps; then
+		cd $(mktemp -d)
+		mv $(ls /var/cache/xbps/$1*.xbps) ./
+		mkdir ./$1
+		tar xf $(ls ./$1*.xbps) -C $1
+		cd $1
+		find usr/ -type f > ./filelist
+		sed 's/^/\//g' -i ./filelist
+		xbps-install $1 -y
+		for i in $(cat filelist); do if [ -f $i ];then rm $i; fi ; done	
+	fi
+
+}
+
 _xbps() {
     case "$OP" in
         install) $SUDO xbps-install "$@";;
@@ -240,6 +269,8 @@ _xbps() {
         search) xbps-query -s "$1" --repository;;
         show) xbps-query -S "$1" --repository;;
         clean) $SUDO xbps-remove -ROo;;
+        download) $SUDO xbps-install -D "$@";;
+	fake_install) fake_install "$@";;
     esac
 }
 
