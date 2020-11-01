@@ -244,16 +244,31 @@ _macports() {
 fake_install() {
 	rm /var/cache/xbps/* 2>/dev/null
 	xbps-install $1 -D
-	if ls /var/cache/xbps/$1*.xbps; then
-		cd $(mktemp -d)
+	if ls /var/cache/xbps/$1*.xbps &>/dev/null; then
+		olddir=$PWD
+		TMPDIR=$(mktemp -d)
+		cd $TMPDIR
 		mv $(ls /var/cache/xbps/$1*.xbps) ./
 		mkdir ./$1
 		tar xf $(ls ./$1*.xbps) -C $1
 		cd $1
 		find usr/ -type f > ./filelist
 		sed 's/^/\//g' -i ./filelist
-		xbps-install $1 -y
-		for i in $(cat filelist); do if [ -f $i ];then rm $i; fi ; done	
+		mkdir backup
+		for i in $(cat filelist); do if [ -f $i ];then cp $i ./backup/; fi; done
+		xbps-install $1 -y -f &>/dev/null
+		for i in $(cat filelist); do if [ -f $i ];then rm $i; fi; done
+		if ls -p backup/ | grep -v / -q; then
+			for f in $(ls -p backup/ | grep -v /); do
+				export file="$f"
+				for i in $(cat filelist); do
+					mv ./backup/$file $i &>/dev/null
+				done	
+			done
+		fi
+		rm $TMPDIR -rf; cd $olddir
+	else
+		exit 1
 	fi
 
 }
