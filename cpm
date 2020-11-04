@@ -283,7 +283,7 @@ _xbps() {
         upgrade) $SUDO xbps-install -Su && $SUDO xbps-install -Su;;
         search) xbps-query -s "$1" --repository;;
         show) xbps-query -S "$1" --repository;;
-        clean) $SUDO xbps-remove -ROo;;
+        clean) $SUDO xbps-remove -ROo && rm /var/cache/xbps/*.{sig,xbps};;
         download) $SUDO xbps-install -D "$@";;
 	fake_install) fake_install "$@";;
     esac
